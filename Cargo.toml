@@ -2,5 +2,12 @@
 name = "ferrum"
 version = "0.1.0"
 edition = "2024"
+authors = ["Shan Padayhag <shanpadayhag@gmail.com>"]
+description = "A simple crate for ferrum projects"
+repository = "https://github.com/nexora-inc/ferrum-framework"
+license = "MIT"
 
 [dependencies]
+lambda_http = "0.14.0"
+serde = { version = "1.0.218", features = ["derive"] }
+serde_json = "1.0.140"
