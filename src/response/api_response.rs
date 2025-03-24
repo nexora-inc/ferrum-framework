@@ -1,7 +1,7 @@
 use lambda_http::{http::StatusCode, Response};
 use serde::Serialize;
 
-pub trait ApiResponse {
+pub trait IApiResponse {
   fn success<T: Serialize>(data: T) -> Response<String>;
 
   fn success_with_status<T: Serialize>(data: T, status_code: StatusCode) -> Response<String>;
@@ -15,9 +15,9 @@ pub trait ApiResponse {
   fn error_with_status<T: Serialize>(data: T, status_code: StatusCode) -> Response<String>;
 }
 
-pub struct ApiResponseImpl;
+pub struct ApiResponse;
 
-impl ApiResponseImpl {
+impl ApiResponse {
   fn json_response<T: Serialize>(data: T, status_code: StatusCode) -> Response<String> {
     Response::builder()
       .status(status_code)
@@ -30,7 +30,7 @@ impl ApiResponseImpl {
   }
 }
 
-impl ApiResponse for ApiResponseImpl {
+impl IApiResponse for ApiResponse {
   fn success<T: Serialize>(data: T) -> Response<String> {
     Self::json_response(data, StatusCode::OK)
   }
@@ -75,7 +75,7 @@ mod tests {
       message: "Success!".to_string(),
       value: 200,
     };
-    let response = ApiResponseImpl::success(&data);
+    let response = ApiResponse::success(&data);
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
       response.headers().get("Content-Type").unwrap(),
@@ -92,7 +92,7 @@ mod tests {
       message: "Custom Success!".to_string(),
       value: 201,
     };
-    let response = ApiResponseImpl::success_with_status(&data, StatusCode::CREATED);
+    let response = ApiResponse::success_with_status(&data, StatusCode::CREATED);
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(
       response.headers().get("Content-Type").unwrap(),
@@ -109,7 +109,7 @@ mod tests {
       message: "Created!".to_string(),
       value: 201,
     };
-    let response = ApiResponseImpl::created(&data);
+    let response = ApiResponse::created(&data);
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(
       response.headers().get("Content-Type").unwrap(),
@@ -126,7 +126,7 @@ mod tests {
       message: "Validation Error!".to_string(),
       value: 422,
     };
-    let response = ApiResponseImpl::unprocessable_entity(&data);
+    let response = ApiResponse::unprocessable_entity(&data);
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(
       response.headers().get("Content-Type").unwrap(),
@@ -143,7 +143,7 @@ mod tests {
       message: "Server Error!".to_string(),
       value: 500,
     };
-    let response = ApiResponseImpl::server_error(&data);
+    let response = ApiResponse::server_error(&data);
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     assert_eq!(
       response.headers().get("Content-Type").unwrap(),
@@ -160,7 +160,7 @@ mod tests {
       message: "Custom Error!".to_string(),
       value: 400,
     };
-    let response = ApiResponseImpl::error_with_status(&data, StatusCode::BAD_REQUEST);
+    let response = ApiResponse::error_with_status(&data, StatusCode::BAD_REQUEST);
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
       response.headers().get("Content-Type").unwrap(),
