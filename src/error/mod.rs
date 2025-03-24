@@ -1,22 +1,34 @@
+use serde::Serialize;
+
+#[derive(Debug, Serialize)]
+pub struct SerializableSqlxError {
+  pub message: String,
+}
+
+#[derive(Debug)]
 pub enum Error {
-  DatabaseConnection(sqlx::Error),
-  DatabaseQuery(sqlx::Error),
-  DatabaseRowMapping(sqlx::Error),
+  DatabaseConnection(SerializableSqlxError),
+  DatabaseQuery(SerializableSqlxError),
+  DatabaseRowMapping(SerializableSqlxError),
 }
 
 impl From<sqlx::Error> for Error {
   fn from(error: sqlx::Error) -> Self {
+    let serializable_error = SerializableSqlxError {
+      message: error.to_string()
+    };
+
     match error {
       sqlx::Error::PoolTimedOut | sqlx::Error::Configuration(_) => {
-        Error::DatabaseConnection(error)
+        Error::DatabaseConnection(serializable_error)
       },
       sqlx::Error::RowNotFound | sqlx::Error::ColumnIndexOutOfBounds { .. } => {
-        Error::DatabaseQuery(error)
+        Error::DatabaseQuery(serializable_error)
       }, sqlx::Error::ColumnDecode { .. } | sqlx::Error::TypeNotFound { .. } => {
-        Error::DatabaseRowMapping(error)
+        Error::DatabaseRowMapping(serializable_error)
       }, _ => {
         println!("{:?}", error);
-        Error::DatabaseConnection(error)
+        Error::DatabaseConnection(serializable_error)
       },
     }
   }
@@ -30,13 +42,15 @@ mod tests {
   fn test_from_pool_timeout() {
     // arrange
     let sqlx_error = sqlx::Error::PoolTimedOut;
+    let sqlx_error_string = sqlx_error.to_string();
 
     // act
     let error = Error::from(sqlx_error);
 
     // assert
     if let Error::DatabaseConnection(db_connection_error) = error {
-      assert!(matches!(db_connection_error, sqlx::Error::PoolTimedOut));
+      assert!(matches!(db_connection_error, SerializableSqlxError { .. }));
+      assert_eq!(db_connection_error.message, sqlx_error_string);
     } else {
       panic!("Expected DatabaseConnection error");
     }
@@ -48,13 +62,15 @@ mod tests {
     let sqlx_error = sqlx::Error::Configuration(
       "test config error".to_string().into()
     );
+    let sqlx_error_string = sqlx_error.to_string();
 
     // act
     let error = Error::from(sqlx_error);
 
     // assert
-    if let Error::DatabaseConnection(e) = error {
-      assert!(matches!(e, sqlx::Error::Configuration(_)));
+    if let Error::DatabaseConnection(error) = error {
+      assert!(matches!(error, SerializableSqlxError { .. }));
+      assert_eq!(error.message, sqlx_error_string);
     } else {
       panic!("Expected DatabaseConnection error");
     }
