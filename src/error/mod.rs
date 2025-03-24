@@ -1,20 +1,20 @@
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
-pub struct SerializableSqlxError {
+pub struct SerializableError {
   pub message: String,
 }
 
 #[derive(Debug, Serialize)]
 pub enum Error {
-  DatabaseConnection(SerializableSqlxError),
-  DatabaseQuery(SerializableSqlxError),
-  DatabaseRowMapping(SerializableSqlxError),
+  DatabaseConnection(SerializableError),
+  DatabaseQuery(SerializableError),
+  DatabaseRowMapping(SerializableError),
 }
 
 impl From<sqlx::Error> for Error {
   fn from(error: sqlx::Error) -> Self {
-    let serializable_error = SerializableSqlxError {
+    let serializable_error = SerializableError {
       message: error.to_string()
     };
 
@@ -49,7 +49,7 @@ mod tests {
 
     // assert
     if let Error::DatabaseConnection(db_connection_error) = error {
-      assert!(matches!(db_connection_error, SerializableSqlxError { .. }));
+      assert!(matches!(db_connection_error, SerializableError { .. }));
       assert_eq!(db_connection_error.message, sqlx_error_string);
     } else {
       panic!("Expected DatabaseConnection error");
@@ -69,7 +69,7 @@ mod tests {
 
     // assert
     if let Error::DatabaseConnection(error) = error {
-      assert!(matches!(error, SerializableSqlxError { .. }));
+      assert!(matches!(error, SerializableError { .. }));
       assert_eq!(error.message, sqlx_error_string);
     } else {
       panic!("Expected DatabaseConnection error");
