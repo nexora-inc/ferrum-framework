@@ -5,7 +5,7 @@ pub struct SerializableSqlxError {
   pub message: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum Error {
   DatabaseConnection(SerializableSqlxError),
   DatabaseQuery(SerializableSqlxError),
