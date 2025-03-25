@@ -1,5 +1,6 @@
 use lambda_http::{http::StatusCode, Response};
 use serde::Serialize;
+use serde_json::json;
 
 pub trait IApiResponse {
   fn success<T: Serialize>(data: T) -> Response<String>;
@@ -7,6 +8,8 @@ pub trait IApiResponse {
   fn success_with_status<T: Serialize>(data: T, status_code: StatusCode) -> Response<String>;
 
   fn created<T: Serialize>(data: T) -> Response<String>;
+
+  fn unauthorized() -> Response<String>;
 
   fn unprocessable_entity<T: Serialize>(data: T) -> Response<String>;
 
@@ -41,6 +44,12 @@ impl IApiResponse for ApiResponse {
 
   fn created<T: Serialize>(data: T) -> Response<String> {
     Self::json_response(data, StatusCode::CREATED)
+  }
+
+  fn unauthorized() -> Response<String> {
+    Self::json_response(json!({
+      "message": "Unauthorized."
+    }), StatusCode::UNAUTHORIZED)
   }
 
   fn unprocessable_entity<T: Serialize>(data: T) -> Response<String> {
