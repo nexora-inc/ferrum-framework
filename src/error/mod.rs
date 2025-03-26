@@ -10,6 +10,7 @@ pub enum Error {
   DatabaseConnection(SerializableError),
   DatabaseQuery(SerializableError),
   DatabaseRowMapping(SerializableError),
+  JWTGenerate(SerializableError),
 }
 
 impl From<sqlx::Error> for Error {
@@ -31,6 +32,16 @@ impl From<sqlx::Error> for Error {
         Error::DatabaseConnection(serializable_error)
       },
     }
+  }
+}
+
+impl From<jsonwebtoken::errors::Error> for Error {
+  fn from(error: jsonwebtoken::errors::Error) -> Self {
+    let serializable_error = SerializableError {
+      message: error.to_string()
+    };
+
+    Error::JWTGenerate(serializable_error)
   }
 }
 
@@ -73,6 +84,26 @@ mod tests {
       assert_eq!(error.message, sqlx_error_string);
     } else {
       panic!("Expected DatabaseConnection error");
+    }
+  }
+
+  #[test]
+  fn test_from_jwt_generate_error() {
+    // arrange
+    let jwt_error = jsonwebtoken::errors::Error::from(
+      jsonwebtoken::errors::ErrorKind::InvalidSignature
+    );
+    let jwt_error_string = jwt_error.to_string();
+
+    // act
+    let error = Error::from(jwt_error);
+
+    // assert
+    if let Error::JWTGenerate(jwt_generate_error) = error {
+      assert!(matches!(jwt_generate_error, SerializableError { .. }));
+      assert_eq!(jwt_generate_error.message, jwt_error_string);
+    } else {
+      panic!("Expected JWTGenerate error");
     }
   }
 }
