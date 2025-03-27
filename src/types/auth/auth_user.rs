@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AuthUser {
   pub id: Uuid,
   pub first_name: String,

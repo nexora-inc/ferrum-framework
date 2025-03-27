@@ -8,6 +8,7 @@ repository = "https://github.com/nexora-inc/ferrum-framework"
 license = "MIT"
 
 [dependencies]
+chrono = { version = "0.4.40", features = [ "serde" ] }
 jsonwebtoken = "9.3.1"
 lambda_http = "0.14.0"
 serde = { version = "1.0.218", features = ["derive"] }

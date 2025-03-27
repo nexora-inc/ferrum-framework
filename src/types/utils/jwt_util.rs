@@ -1,13 +1,18 @@
+use serde::{Deserialize, Serialize};
+
 use crate::types::auth::AuthUser;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum TokenType {
   AccessToken,
   RefreshToken,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AuthClaims {
+  #[serde(rename = "sub")]
   pub subject: String,
+  #[serde(rename = "exp")]
   pub expires_in: usize,
   pub user_details: AuthUser,
   pub token_type: TokenType,
@@ -17,6 +22,7 @@ pub struct AuthClaims {
 mod tests {
   use super::*;
   use uuid::Uuid;
+
   use crate::types::auth::AuthUser;
 
   #[test]
@@ -57,7 +63,7 @@ mod tests {
     };
 
     let subject = user_id.to_string();
-    let expires_in = 86400; // Example: 24 hours
+    let expires_in = 86400;
     let token_type = TokenType::RefreshToken;
 
     let claims = AuthClaims {
