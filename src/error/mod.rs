@@ -9,6 +9,7 @@ pub struct SerializableError {
 pub enum Error {
   DatabaseConnection(SerializableError),
   DatabaseQuery(SerializableError),
+  DatabaseNotFound(SerializableError),
   DatabaseRowMapping(SerializableError),
   JWTGenerate(SerializableError),
 }
@@ -23,7 +24,9 @@ impl From<sqlx::Error> for Error {
       sqlx::Error::PoolTimedOut | sqlx::Error::Configuration(_) => {
         Error::DatabaseConnection(serializable_error)
       },
-      sqlx::Error::RowNotFound | sqlx::Error::ColumnIndexOutOfBounds { .. } => {
+      sqlx::Error::RowNotFound => {
+        Error::DatabaseNotFound(serializable_error)
+      }, sqlx::Error::ColumnIndexOutOfBounds { .. } => {
         Error::DatabaseQuery(serializable_error)
       }, sqlx::Error::ColumnDecode { .. } | sqlx::Error::TypeNotFound { .. } => {
         Error::DatabaseRowMapping(serializable_error)
@@ -64,6 +67,24 @@ mod tests {
       assert_eq!(db_connection_error.message, sqlx_error_string);
     } else {
       panic!("Expected DatabaseConnection error");
+    }
+  }
+
+  #[test]
+  fn test_from_row_not_found() {
+    // arrange
+    let sqlx_error = sqlx::Error::RowNotFound;
+    let sqlx_error_string = sqlx_error.to_string();
+
+    // act
+    let error = Error::from(sqlx_error);
+
+    // assert
+    if let Error::DatabaseNotFound(not_found_error) = error {
+      assert!(matches!(not_found_error, SerializableError { .. }));
+      assert_eq!(not_found_error.message, sqlx_error_string);
+    } else {
+      panic!("Expected DatabaseNotFound error");
     }
   }
 
