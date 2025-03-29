@@ -11,6 +11,8 @@ pub trait IApiResponse {
 
   fn unauthorized() -> Response<String>;
 
+  fn not_found<T: Serialize>(data: T) -> Response<String>;
+
   fn unprocessable_entity<T: Serialize>(data: T) -> Response<String>;
 
   fn server_error<T: Serialize>(data: T) -> Response<String>;
@@ -50,6 +52,10 @@ impl IApiResponse for ApiResponse {
     Self::json_response(json!({
       "message": "Unauthorized."
     }), StatusCode::UNAUTHORIZED)
+  }
+
+  fn not_found<T: Serialize>(data: T) -> Response<String> {
+    Self::json_response(data, StatusCode::NOT_FOUND)
   }
 
   fn unprocessable_entity<T: Serialize>(data: T) -> Response<String> {
