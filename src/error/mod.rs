@@ -9,7 +9,7 @@ pub struct SerializableError {
 pub enum Error {
   DatabaseConnection(SerializableError),
   DatabaseQuery(SerializableError),
-  DatabaseNotFound(SerializableError),
+  DatabaseRowNotFound(SerializableError),
   DatabaseRowMapping(SerializableError),
   JWTGenerate(SerializableError),
 }
@@ -25,7 +25,7 @@ impl From<sqlx::Error> for Error {
         Error::DatabaseConnection(serializable_error)
       },
       sqlx::Error::RowNotFound => {
-        Error::DatabaseNotFound(serializable_error)
+        Error::DatabaseRowNotFound(serializable_error)
       }, sqlx::Error::ColumnIndexOutOfBounds { .. } => {
         Error::DatabaseQuery(serializable_error)
       }, sqlx::Error::ColumnDecode { .. } | sqlx::Error::TypeNotFound { .. } => {
@@ -80,11 +80,11 @@ mod tests {
     let error = Error::from(sqlx_error);
 
     // assert
-    if let Error::DatabaseNotFound(not_found_error) = error {
+    if let Error::DatabaseRowNotFound(not_found_error) = error {
       assert!(matches!(not_found_error, SerializableError { .. }));
       assert_eq!(not_found_error.message, sqlx_error_string);
     } else {
-      panic!("Expected DatabaseNotFound error");
+      panic!("Expected DatabaseRowNotFound error");
     }
   }
 
