@@ -8,7 +8,7 @@ pub enum TokenType {
   RefreshToken,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct AuthClaims {
   #[serde(rename = "sub")]
   pub subject: String,

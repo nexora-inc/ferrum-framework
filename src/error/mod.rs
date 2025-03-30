@@ -11,9 +11,11 @@ pub enum Error {
   DatabaseQuery(SerializableError),
   DatabaseRowNotFound(SerializableError),
   DatabaseRowMapping(SerializableError),
-  JWTGenerate(SerializableError),
+  JwtGenerate(SerializableError),
+  JwtTokenInvalid(SerializableError),
   Unauthorized(SerializableError),
   ToStr(SerializableError),
+  Unhandled(SerializableError),
 }
 
 impl From<sqlx::Error> for Error {
@@ -46,7 +48,13 @@ impl From<jsonwebtoken::errors::Error> for Error {
       message: error.to_string()
     };
 
-    Error::JWTGenerate(serializable_error)
+    match error.kind() {
+      jsonwebtoken::errors::ErrorKind::InvalidToken { .. } => {
+        Error::JwtTokenInvalid(serializable_error)
+      }, jsonwebtoken::errors::ErrorKind::InvalidSignature => {
+        Error::JwtGenerate(serializable_error)
+      }, _ => Error::Unhandled(serializable_error),
+    }
   }
 }
 
@@ -132,7 +140,7 @@ use super::*;
     let error = Error::from(jwt_error);
 
     // assert
-    if let Error::JWTGenerate(jwt_generate_error) = error {
+    if let Error::JwtGenerate(jwt_generate_error) = error {
       assert!(matches!(jwt_generate_error, SerializableError { .. }));
       assert_eq!(jwt_generate_error.message, jwt_error_string);
     } else {
