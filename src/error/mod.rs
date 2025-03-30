@@ -12,6 +12,8 @@ pub enum Error {
   DatabaseRowNotFound(SerializableError),
   DatabaseRowMapping(SerializableError),
   JWTGenerate(SerializableError),
+  Unauthorized(SerializableError),
+  ToStr(SerializableError),
 }
 
 impl From<sqlx::Error> for Error {
@@ -48,9 +50,19 @@ impl From<jsonwebtoken::errors::Error> for Error {
   }
 }
 
+impl From<lambda_http::http::header::ToStrError> for Error {
+  fn from(error: lambda_http::http::header::ToStrError) -> Self {
+    Self::ToStr(SerializableError {
+      message: error.to_string()
+    })
+  }
+}
+
 #[cfg(test)]
 mod tests {
-  use super::*;
+  use lambda_http::http::{header::ToStrError, HeaderValue};
+
+use super::*;
 
   #[test]
   fn test_from_pool_timeout() {
@@ -125,6 +137,25 @@ mod tests {
       assert_eq!(jwt_generate_error.message, jwt_error_string);
     } else {
       panic!("Expected JWTGenerate error");
+    }
+  }
+
+  #[test]
+  fn test_from_lambda_http_to_str_error() {
+    // arrange
+    let invalid_bytes = b"\xf0\x9f\xa6\xad\xed\xa0\x80";
+        let header_value = HeaderValue::from_bytes(invalid_bytes).unwrap();
+    let to_str_result: Result<&str, ToStrError> = header_value.to_str();
+    let to_str_error = to_str_result.unwrap_err();
+
+    // act
+    let error: Error = to_str_error.into();
+
+    // assert
+    match error {
+      Error::ToStr(serializable_error) => {
+        assert_eq!(serializable_error.message, "failed to convert header to a str");
+      }, _ => panic!("Expected Error::ToStr variant, but got {:?}", error),
     }
   }
 }

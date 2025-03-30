@@ -1,26 +1,35 @@
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 
 use crate::{types::utils::jwt_util::AuthClaims, Error};
 
 pub trait IJwtUtil {
   fn generate_token(&self, claims: &AuthClaims) -> Result<String, Error>;
+  fn extract_claims(&self, token: &str) -> Result<AuthClaims, Error>;
 }
 
 pub struct JwtUtil {
   encoding_key: EncodingKey,
+  decoding_key: DecodingKey,
 }
 
 impl JwtUtil {
   pub fn new(app_key: &str) -> Self {
     let encoding_key = EncodingKey::from_secret(app_key.as_bytes());
+    let decoding_key = DecodingKey::from_secret(app_key.as_bytes());
 
-    Self { encoding_key }
+    Self { encoding_key, decoding_key }
   }
 }
 
 impl IJwtUtil for JwtUtil {
   fn generate_token(&self, claims: &AuthClaims) -> Result<String, Error> {
     Ok(encode(&Header::default(), claims, &self.encoding_key)?)
+  }
+
+  fn extract_claims(&self, token: &str) -> Result<AuthClaims, Error> {
+    Ok(decode::<AuthClaims>(
+      token, &self.decoding_key, &Validation::default()
+    )?.claims)
   }
 }
 
