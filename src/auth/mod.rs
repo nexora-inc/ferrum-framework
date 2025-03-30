@@ -2,7 +2,7 @@ use lambda_http::http::HeaderMap;
 
 use crate::{
   error::SerializableError,
-  types::utils::jwt_util::AuthClaims,
+  types::{auth::AuthUser, utils::jwt_util::AuthClaims},
   utils::jwt_util::IJwtUtil,
   Error
 };
@@ -19,6 +19,10 @@ pub struct Auth {
 impl Auth {
   pub fn new(jwt_util: Box<dyn IJwtUtil>) -> Self {
     Self { jwt_util, claims: None }
+  }
+
+  pub fn user(&self) -> AuthUser {
+    self.claims.as_ref().unwrap().user_details.clone()
   }
 }
 
