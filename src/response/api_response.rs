@@ -30,7 +30,7 @@ impl ApiResponse {
       .header("Access-Control-Allow-Origin", "*")
       .header("Access-Control-Allow-Credentials", "true")
       .header("Access-Control-Allow-Headers", "Content-Type")
-      .header("Access-Control-Allow-Methods", "OPTIONS,POST")
+      .header("Access-Control-Allow-Methods", "OPTIONS,POST,GET,PUT,PATCH,DELETE")
       .body(serde_json::to_string(&data).unwrap_or_default())
       .unwrap()
   }
