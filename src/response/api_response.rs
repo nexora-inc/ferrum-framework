@@ -11,6 +11,8 @@ pub trait IApiResponse {
 
   fn unauthorized() -> Response<String>;
 
+  fn forbidden<T: Serialize>(data: T) -> Response<String>;
+
   fn not_found<T: Serialize>(data: T) -> Response<String>;
 
   fn unprocessable_entity<T: Serialize>(data: T) -> Response<String>;
@@ -55,6 +57,10 @@ impl IApiResponse for ApiResponse {
     }), StatusCode::UNAUTHORIZED)
   }
 
+  fn forbidden<T: Serialize>(data: T) -> Response<String> {
+    Self::json_response(data, StatusCode::FORBIDDEN)
+  }
+
   fn not_found<T: Serialize>(data: T) -> Response<String> {
     Self::json_response(data, StatusCode::NOT_FOUND)
   }
@@ -77,7 +83,7 @@ mod tests {
   use super::*;
   use lambda_http::http::StatusCode;
   use serde::Deserialize;
-  use serde_json;
+  use serde_json::{self, Value};
 
   #[derive(Debug, PartialEq, Serialize, Deserialize)]
   struct SampleData {
@@ -134,6 +140,20 @@ mod tests {
     let body = response.body();
     let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
     assert_eq!(deserialized_body, data);
+  }
+
+  #[test]
+  fn test_forbidden() {
+    // arrange
+    let data = json!({ "message": "Refresh token not found." });
+
+    // act
+    let response = ApiResponse::forbidden(&data);
+
+    // assert
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body: Value = serde_json::from_str(response.body()).unwrap();
+    assert_eq!(body, data);
   }
 
   #[test]
