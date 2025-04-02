@@ -2,13 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::auth::AuthUser;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TokenType {
   AccessToken,
   RefreshToken,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AuthClaims {
   #[serde(rename = "sub")]
   pub subject: String,
