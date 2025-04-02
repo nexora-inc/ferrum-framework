@@ -3,27 +3,31 @@ use serde::Serialize;
 use serde_json::json;
 
 pub trait IApiResponse {
-  fn success<T: Serialize>(data: T) -> Response<String>;
+  fn success<T: Serialize>(data: &T) -> Response<String>;
 
-  fn success_with_status<T: Serialize>(data: T, status_code: StatusCode) -> Response<String>;
+  fn success_with_status<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String>;
 
-  fn created<T: Serialize>(data: T) -> Response<String>;
+  fn created<T: Serialize>(data: &T) -> Response<String>;
+
+  fn bad_request(message: &str) -> Response<String>;
 
   fn unauthorized() -> Response<String>;
 
-  fn not_found<T: Serialize>(data: T) -> Response<String>;
+  fn forbidden(message: &str) -> Response<String>;
 
-  fn unprocessable_entity<T: Serialize>(data: T) -> Response<String>;
+  fn not_found<T: Serialize>(data: &T) -> Response<String>;
 
-  fn server_error<T: Serialize>(data: T) -> Response<String>;
+  fn unprocessable_entity<T: Serialize>(data: &T) -> Response<String>;
 
-  fn error_with_status<T: Serialize>(data: T, status_code: StatusCode) -> Response<String>;
+  fn server_error<T: Serialize>(data: &T) -> Response<String>;
+
+  fn error_with_status<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String>;
 }
 
 pub struct ApiResponse;
 
 impl ApiResponse {
-  fn json_response<T: Serialize>(data: T, status_code: StatusCode) -> Response<String> {
+  fn json_response<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String> {
     Response::builder()
       .status(status_code)
       .header("Content-Type", "application/json")
@@ -37,38 +41,50 @@ impl ApiResponse {
 }
 
 impl IApiResponse for ApiResponse {
-  fn success<T: Serialize>(data: T) -> Response<String> {
-    Self::json_response(data, StatusCode::OK)
+  fn success<T: Serialize>(data: &T) -> Response<String> {
+    Self::json_response(data, &StatusCode::OK)
   }
 
-  fn success_with_status<T: Serialize>(data: T, status_code: StatusCode) -> Response<String> {
+  fn success_with_status<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String> {
     Self::json_response(data, status_code)
   }
 
-  fn created<T: Serialize>(data: T) -> Response<String> {
-    Self::json_response(data, StatusCode::CREATED)
+  fn created<T: Serialize>(data: &T) -> Response<String> {
+    Self::json_response(data, &StatusCode::CREATED)
+  }
+
+  fn bad_request(message: &str) -> Response<String> {
+    Self::json_response(&json!({
+      "message": message
+    }), &StatusCode::BAD_REQUEST)
   }
 
   fn unauthorized() -> Response<String> {
-    Self::json_response(json!({
+    Self::json_response(&json!({
       "message": "Unauthorized."
-    }), StatusCode::UNAUTHORIZED)
+    }), &StatusCode::UNAUTHORIZED)
   }
 
-  fn not_found<T: Serialize>(data: T) -> Response<String> {
-    Self::json_response(data, StatusCode::NOT_FOUND)
+  fn forbidden(message: &str) -> Response<String> {
+    Self::json_response(&json!({
+      "message": message,
+    }), &StatusCode::FORBIDDEN)
   }
 
-  fn unprocessable_entity<T: Serialize>(data: T) -> Response<String> {
-    Self::json_response(data, StatusCode::UNPROCESSABLE_ENTITY)
+  fn not_found<T: Serialize>(data: &T) -> Response<String> {
+    Self::json_response(data, &StatusCode::NOT_FOUND)
   }
 
-  fn server_error<T: Serialize>(data: T) -> Response<String> {
-    Self::json_response(data, StatusCode::INTERNAL_SERVER_ERROR)
+  fn unprocessable_entity<T: Serialize>(data: &T) -> Response<String> {
+    Self::json_response(data, &StatusCode::UNPROCESSABLE_ENTITY)
   }
 
-  fn error_with_status<T: Serialize>(data: T, status_code: StatusCode) -> Response<String> {
-    Self::json_response(data, status_code)
+  fn server_error<T: Serialize>(data: &T) -> Response<String> {
+    Self::json_response(data, &StatusCode::INTERNAL_SERVER_ERROR)
+  }
+
+  fn error_with_status<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String> {
+    Self::json_response(&data, status_code)
   }
 }
 
@@ -77,7 +93,7 @@ mod tests {
   use super::*;
   use lambda_http::http::StatusCode;
   use serde::Deserialize;
-  use serde_json;
+  use serde_json::{self, Value};
 
   #[derive(Debug, PartialEq, Serialize, Deserialize)]
   struct SampleData {
@@ -108,8 +124,8 @@ mod tests {
       message: "Custom Success!".to_string(),
       value: 201,
     };
-    let response = ApiResponse::success_with_status(&data, StatusCode::CREATED);
-    assert_eq!(response.status(), StatusCode::CREATED);
+    let response = ApiResponse::success_with_status(&data, &StatusCode::CREATED);
+    assert_eq!(response.status(),StatusCode::CREATED);
     assert_eq!(
       response.headers().get("Content-Type").unwrap(),
       "application/json"
@@ -134,6 +150,34 @@ mod tests {
     let body = response.body();
     let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
     assert_eq!(deserialized_body, data);
+  }
+
+  #[test]
+  fn test_bad_request() {
+    // arrange
+    let message = "Refresh token is missing.";
+
+    // act
+    let response = ApiResponse::bad_request(&message);
+
+    // assert
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body: Value = serde_json::from_str(response.body()).unwrap();
+    assert_eq!(body["message"], message);
+  }
+
+  #[test]
+  fn test_forbidden() {
+    // arrange
+    let message = "Invalid access token.";
+
+    // act
+    let response = ApiResponse::forbidden(&message);
+
+    // assert
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body: Value = serde_json::from_str(response.body()).unwrap();
+    assert_eq!(body["message"], message);
   }
 
   #[test]
@@ -176,7 +220,7 @@ mod tests {
       message: "Custom Error!".to_string(),
       value: 400,
     };
-    let response = ApiResponse::error_with_status(&data, StatusCode::BAD_REQUEST);
+    let response = ApiResponse::error_with_status(&data, &StatusCode::BAD_REQUEST);
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
       response.headers().get("Content-Type").unwrap(),
