@@ -65,10 +65,10 @@ mod tests {
   use lambda_http::http::HeaderValue;
   use uuid::Uuid;
 
-  use crate::types::utils::jwt_util::TokenType;
-
-  #[cfg(any(test, feature = "mocks"))]
-  use crate::utils::jwt_util::MockIJwtUtil;
+  use crate::{
+    types::utils::jwt_util::TokenType,
+    utils::jwt_util::MockIJwtUtil,
+  };
 
   #[test]
   fn test_authenticate_success() {
