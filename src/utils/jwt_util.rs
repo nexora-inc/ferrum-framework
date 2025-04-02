@@ -2,13 +2,15 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 
 use crate::{types::utils::jwt_util::AuthClaims, Error};
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mocks"))]
 use mockall::{automock, predicate::*};
-#[cfg_attr(test, automock)]
-pub trait IJwtUtil {
+#[async_trait::async_trait]
+#[cfg_attr(any(test, feature = "mocks"), automock)]
+pub trait IJwtUtil: Send + Sync {
   fn generate_token(&self, claims: &AuthClaims) -> Result<String, Error>;
   fn extract_claims(&self, token: &str) -> Result<AuthClaims, Error>;
 }
+
 
 #[derive(Clone)]
 pub struct JwtUtil {
