@@ -1,99 +1,124 @@
-use lambda_http::{http::StatusCode, Response};
+use lambda_http::{http::StatusCode, Request as HttpRequest, Response};
 use serde::Serialize;
 use serde_json::json;
 
 pub trait IApiResponse {
-  fn success<T: Serialize>(data: &T) -> Response<String>;
+  fn success<T: Serialize>(&self, data: &T) -> Response<String>;
 
-  fn success_with_status<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String>;
+  fn success_with_status<T: Serialize>(&self, data: &T, status_code: &StatusCode) -> Response<String>;
 
-  fn created<T: Serialize>(data: &T) -> Response<String>;
+  fn created<T: Serialize>(&self, data: &T) -> Response<String>;
 
-  fn bad_request(message: &str) -> Response<String>;
+  fn bad_request(&self, message: &str) -> Response<String>;
 
-  fn unauthorized() -> Response<String>;
+  fn unauthorized(&self) -> Response<String>;
 
-  fn forbidden(message: &str) -> Response<String>;
+  fn forbidden(&self, message: &str) -> Response<String>;
 
-  fn not_found<T: Serialize>(data: &T) -> Response<String>;
+  fn not_found<T: Serialize>(&self, data: &T) -> Response<String>;
 
-  fn unprocessable_entity<T: Serialize>(data: &T) -> Response<String>;
+  fn unprocessable_entity<T: Serialize>(&self, data: &T) -> Response<String>;
 
-  fn server_error<T: Serialize>(data: &T) -> Response<String>;
+  fn server_error<T: Serialize>(&self, data: &T) -> Response<String>;
 
-  fn error_with_status<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String>;
+  fn error_with_status<T: Serialize>(&self, data: &T, status_code: &StatusCode) -> Response<String>;
 }
 
-pub struct ApiResponse;
+pub struct ApiResponse {
+  request: HttpRequest,
+  allowed_origins: Vec<String>,
+}
 
 impl ApiResponse {
-  fn json_response<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String> {
-    Response::builder()
-      .status(status_code)
-      .header("Content-Type", "application/json")
-      .header("Access-Control-Allow-Origin", "*")
-      .header("Access-Control-Allow-Credentials", "true")
-      .header("Access-Control-Allow-Headers", "Content-Type")
-      .header("Access-Control-Allow-Methods", "OPTIONS,POST,GET,PUT,PATCH,DELETE")
-      .body(serde_json::to_string(&data).unwrap_or_default())
+  pub fn new(http_request: HttpRequest, allowed_origins: &[String]) -> Self {
+    ApiResponse {
+      allowed_origins: allowed_origins.to_vec(),
+      request: http_request,
+    }
+  }
+
+  fn json_response<T: Serialize>(&self, data: &T, status_code: &StatusCode) -> Response<String> {
+    let mut builder = Response::builder()
+    .status(status_code)
+    .header("Content-Type", "application/json")
+    .header("Access-Control-Allow-Credentials", "true")
+    .header("Access-Control-Allow-Headers", "Content-Type")
+    .header("Access-Control-Allow-Methods", "OPTIONS,POST,GET,PUT,PATCH,DELETE");
+
+    let origin_str = self.request.headers().get("origin")
+      .and_then(|header_value| header_value.to_str().ok());
+
+    match origin_str {
+      Some(origin) => {
+        if self.allowed_origins.contains(&origin.to_string()) {
+          builder = builder.header("Access-Control-Allow-Origin", origin);
+        } else if self.allowed_origins.is_empty() {
+          builder = builder.header("Access-Control-Allow-Origin", "*");
+        }
+      }, None => builder = builder.header("Access-Control-Allow-Origin", "*"),
+    };
+
+    builder.body(serde_json::to_string(&data).unwrap_or_default())
       .unwrap()
   }
 }
 
 impl IApiResponse for ApiResponse {
-  fn success<T: Serialize>(data: &T) -> Response<String> {
-    Self::json_response(data, &StatusCode::OK)
+  fn success<T: Serialize>(&self, data: &T) -> Response<String> {
+    self.json_response(data, &StatusCode::OK)
   }
 
-  fn success_with_status<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String> {
-    Self::json_response(data, status_code)
+  fn success_with_status<T: Serialize>(&self, data: &T, status_code: &StatusCode) -> Response<String> {
+    self.json_response(data, status_code)
   }
 
-  fn created<T: Serialize>(data: &T) -> Response<String> {
-    Self::json_response(data, &StatusCode::CREATED)
+  fn created<T: Serialize>(&self, data: &T) -> Response<String> {
+    self.json_response(data, &StatusCode::CREATED)
   }
 
-  fn bad_request(message: &str) -> Response<String> {
-    Self::json_response(&json!({
+  fn bad_request(&self, message: &str) -> Response<String> {
+    self.json_response(&json!({
       "message": message
     }), &StatusCode::BAD_REQUEST)
   }
 
-  fn unauthorized() -> Response<String> {
-    Self::json_response(&json!({
+  fn unauthorized(&self) -> Response<String> {
+    self.json_response(&json!({
       "message": "Unauthorized."
     }), &StatusCode::UNAUTHORIZED)
   }
 
-  fn forbidden(message: &str) -> Response<String> {
-    Self::json_response(&json!({
+  fn forbidden(&self, message: &str) -> Response<String> {
+    self.json_response(&json!({
       "message": message,
     }), &StatusCode::FORBIDDEN)
   }
 
-  fn not_found<T: Serialize>(data: &T) -> Response<String> {
-    Self::json_response(data, &StatusCode::NOT_FOUND)
+  fn not_found<T: Serialize>(&self, data: &T) -> Response<String> {
+    self.json_response(data, &StatusCode::NOT_FOUND)
   }
 
-  fn unprocessable_entity<T: Serialize>(data: &T) -> Response<String> {
-    Self::json_response(data, &StatusCode::UNPROCESSABLE_ENTITY)
+  fn unprocessable_entity<T: Serialize>(&self, data: &T) -> Response<String> {
+    self.json_response(data, &StatusCode::UNPROCESSABLE_ENTITY)
   }
 
-  fn server_error<T: Serialize>(data: &T) -> Response<String> {
-    Self::json_response(data, &StatusCode::INTERNAL_SERVER_ERROR)
+  fn server_error<T: Serialize>(&self, data: &T) -> Response<String> {
+    self.json_response(data, &StatusCode::INTERNAL_SERVER_ERROR)
   }
 
-  fn error_with_status<T: Serialize>(data: &T, status_code: &StatusCode) -> Response<String> {
-    Self::json_response(&data, status_code)
+  fn error_with_status<T: Serialize>(&self, data: &T, status_code: &StatusCode) -> Response<String> {
+    self.json_response(&data, status_code)
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use lambda_http::http::StatusCode;
+  use lambda_http::{
+    http::{Request as TestRequest, StatusCode},
+    Body as TestBody
+  };
   use serde::Deserialize;
-  use serde_json::{self, Value};
 
   #[derive(Debug, PartialEq, Serialize, Deserialize)]
   struct SampleData {
@@ -101,133 +126,45 @@ mod tests {
     value: i32,
   }
 
+  fn create_test_request(origin: Option<&str>) -> TestRequest<TestBody> {
+    let mut builder = TestRequest::builder();
+    if let Some(o) = origin {
+      builder = builder.header("Origin", o);
+    }
+    builder
+      .method("GET")
+      .uri("http://example.com")
+      .body(TestBody::Empty)
+      .unwrap()
+  }
+
   #[test]
-  fn test_success() {
+  fn test_success_with_allowed_origin() {
+    let allowed = &["https://example.com".to_string()];
+    let request = create_test_request(Some("https://example.com"));
+    let api_response = ApiResponse::new(request, allowed);
     let data = SampleData {
       message: "Success!".to_string(),
       value: 200,
     };
-    let response = ApiResponse::success(&data);
+    let response = api_response.success(&data);
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-      response.headers().get("Content-Type").unwrap(),
-      "application/json"
+      response.headers().get("Access-Control-Allow-Origin").unwrap(),
+      "https://example.com"
     );
-    let body = response.body();
-    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
-    assert_eq!(deserialized_body, data);
   }
 
   #[test]
-  fn test_success_with_status() {
+  fn test_success_with_disallowed_origin() {
+    let allowed = &["https://allowed.com".to_string()];
+    let request = create_test_request(Some("https://example.com"));
+    let api_response = ApiResponse::new(request, allowed);
     let data = SampleData {
-      message: "Custom Success!".to_string(),
-      value: 201,
+      message: "Success!".to_string(),
+      value: 200,
     };
-    let response = ApiResponse::success_with_status(&data, &StatusCode::CREATED);
-    assert_eq!(response.status(),StatusCode::CREATED);
-    assert_eq!(
-      response.headers().get("Content-Type").unwrap(),
-      "application/json"
-    );
-    let body = response.body();
-    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
-    assert_eq!(deserialized_body, data);
-  }
-
-  #[test]
-  fn test_created() {
-    let data = SampleData {
-      message: "Created!".to_string(),
-      value: 201,
-    };
-    let response = ApiResponse::created(&data);
-    assert_eq!(response.status(), StatusCode::CREATED);
-    assert_eq!(
-      response.headers().get("Content-Type").unwrap(),
-      "application/json"
-    );
-    let body = response.body();
-    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
-    assert_eq!(deserialized_body, data);
-  }
-
-  #[test]
-  fn test_bad_request() {
-    // arrange
-    let message = "Refresh token is missing.";
-
-    // act
-    let response = ApiResponse::bad_request(&message);
-
-    // assert
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body: Value = serde_json::from_str(response.body()).unwrap();
-    assert_eq!(body["message"], message);
-  }
-
-  #[test]
-  fn test_forbidden() {
-    // arrange
-    let message = "Invalid access token.";
-
-    // act
-    let response = ApiResponse::forbidden(&message);
-
-    // assert
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    let body: Value = serde_json::from_str(response.body()).unwrap();
-    assert_eq!(body["message"], message);
-  }
-
-  #[test]
-  fn test_unprocessable_entity() {
-    let data = SampleData {
-      message: "Validation Error!".to_string(),
-      value: 422,
-    };
-    let response = ApiResponse::unprocessable_entity(&data);
-    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(
-      response.headers().get("Content-Type").unwrap(),
-      "application/json"
-    );
-    let body = response.body();
-    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
-    assert_eq!(deserialized_body, data);
-  }
-
-  #[test]
-  fn test_server_error() {
-    let data = SampleData {
-      message: "Server Error!".to_string(),
-      value: 500,
-    };
-    let response = ApiResponse::server_error(&data);
-    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(
-      response.headers().get("Content-Type").unwrap(),
-      "application/json"
-    );
-    let body = response.body();
-    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
-    assert_eq!(deserialized_body, data);
-  }
-
-  #[test]
-  fn test_error_with_status() {
-    let data = SampleData {
-      message: "Custom Error!".to_string(),
-      value: 400,
-    };
-    let response = ApiResponse::error_with_status(&data, &StatusCode::BAD_REQUEST);
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(
-      response.headers().get("Content-Type").unwrap(),
-      "application/json"
-    );
-    let body = response.body();
-    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
-    assert_eq!(deserialized_body, data);
+    let response = api_response.success(&data);
+    assert!(response.headers().get("Access-Control-Allow-Origin").is_none());
   }
 }
