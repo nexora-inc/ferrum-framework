@@ -2,7 +2,7 @@ use lambda_http::http::HeaderMap;
 
 use crate::{
   error::SerializableError,
-  types::{auth::AuthUser, utils::jwt_util::AuthClaims},
+  types::utils::jwt_util::AuthClaims,
   utils::jwt_util::IJwtUtil,
   Error,
 };
@@ -22,10 +22,10 @@ impl Auth {
     Self { jwt_util, claims: None, auth_scheme: "Watashiwasta " }
   }
 
-  pub fn user(&self) -> Option<AuthUser> {
+  pub fn user_id(&self) -> Option<String> {
     match self.claims.as_ref() {
       None => None,
-      Some(claims) => Some(claims.user_details.clone()),
+      Some(claims) => Some(claims.subject.clone()),
     }
   }
 }
@@ -90,21 +90,15 @@ mod tests {
       .returning(move |_| {
         Ok(AuthClaims {
           subject: user_id.to_string(),
-          expires_in: Utc::now().timestamp() as usize,
-          user_details: AuthUser {
-            id: user_id,
-            first_name: "John".to_string(),
-            middle_name: None,
-            last_name: "Doe".to_string(),
-            email: "johndoe@example.com".to_string(),
-          }, token_type: TokenType::AccessToken,
+          expires_in: Utc::now().timestamp(),
+          token_type: TokenType::AccessToken,
         })
       });
 
     // assert
     let mut auth = Auth::new(Box::new(jwt_util));
     assert!(auth.authenticate(&headers).is_ok());
-    assert_eq!(auth.user().unwrap().id, user_id);
+    assert_eq!(auth.user_id().unwrap(), user_id.to_string());
   }
 
   #[test]
@@ -144,7 +138,7 @@ mod tests {
 
     // assert
     assert!(test_did_fail);
-    assert_eq!(auth.user(), None);
+    assert_eq!(auth.user_id(), None);
   }
 
   #[test]
