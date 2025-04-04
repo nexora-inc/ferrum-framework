@@ -1,4 +1,4 @@
-use lambda_http::{http::StatusCode, Request as HttpRequest, Response};
+use lambda_http::{http::StatusCode, Response};
 use serde::Serialize;
 use serde_json::json;
 
@@ -24,42 +24,21 @@ pub trait IApiResponse {
   fn error_with_status<T: Serialize>(&self, data: &T, status_code: &StatusCode) -> Response<String>;
 }
 
-pub struct ApiResponse {
-  request: HttpRequest,
-  allowed_origins: Vec<String>,
-}
+pub struct ApiResponse;
 
 impl ApiResponse {
-  pub fn new(http_request: HttpRequest, allowed_origins: &[String]) -> Self {
-    ApiResponse {
-      allowed_origins: allowed_origins.to_vec(),
-      request: http_request,
-    }
+  pub fn new() -> Self {
+    Self {}
   }
 
   fn json_response<T: Serialize>(&self, data: &T, status_code: &StatusCode) -> Response<String> {
-    let mut builder = Response::builder()
-    .status(status_code)
-    .header("Content-Type", "application/json")
-    .header("Access-Control-Allow-Credentials", "true")
-    .header("Access-Control-Allow-Headers", "Content-Type")
-    .header("Access-Control-Allow-Methods", "OPTIONS,POST,GET,PUT,PATCH,DELETE");
-
-    let origin_str = self.request.headers().get("origin")
-      .and_then(|header_value| header_value.to_str().ok());
-
-    match origin_str {
-      Some(origin) => {
-        if self.allowed_origins.contains(&origin.to_string()) {
-          builder = builder.header("Access-Control-Allow-Origin", origin);
-        } else if self.allowed_origins.is_empty() {
-          builder = builder.header("Access-Control-Allow-Origin", "*");
-        }
-      }, None => builder = builder.header("Access-Control-Allow-Origin", "*"),
-    };
-
-    builder.body(serde_json::to_string(&data).unwrap_or_default())
-      .unwrap()
+    Response::builder()
+      .status(status_code)
+      .header("Content-Type", "application/json")
+      .header("Access-Control-Allow-Headers", "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token")
+      .header("Access-Control-Allow-Methods", "OPTIONS,POST,GET,PUT,PATCH,DELETE")
+      .body(serde_json::to_string(&data).unwrap_or_default())
+        .unwrap()
   }
 }
 
@@ -114,10 +93,7 @@ impl IApiResponse for ApiResponse {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use lambda_http::{
-    http::{Request as TestRequest, StatusCode},
-    Body as TestBody
-  };
+  use lambda_http::http::StatusCode;
   use serde::Deserialize;
 
   #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -126,45 +102,111 @@ mod tests {
     value: i32,
   }
 
-  fn create_test_request(origin: Option<&str>) -> TestRequest<TestBody> {
-    let mut builder = TestRequest::builder();
-    if let Some(o) = origin {
-      builder = builder.header("Origin", o);
-    }
-    builder
-      .method("GET")
-      .uri("http://example.com")
-      .body(TestBody::Empty)
-      .unwrap()
-  }
-
   #[test]
-  fn test_success_with_allowed_origin() {
-    let allowed = &["https://example.com".to_string()];
-    let request = create_test_request(Some("https://example.com"));
-    let api_response = ApiResponse::new(request, allowed);
+  fn test_success() {
     let data = SampleData {
       message: "Success!".to_string(),
       value: 200,
     };
+    let api_response = ApiResponse::new();
     let response = api_response.success(&data);
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-      response.headers().get("Access-Control-Allow-Origin").unwrap(),
-      "https://example.com"
+      response.headers().get("Content-Type").unwrap(),
+      "application/json"
     );
+    let body = response.body();
+    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
+    assert_eq!(deserialized_body, data);
   }
 
   #[test]
-  fn test_success_with_disallowed_origin() {
-    let allowed = &["https://allowed.com".to_string()];
-    let request = create_test_request(Some("https://example.com"));
-    let api_response = ApiResponse::new(request, allowed);
+  fn test_success_with_status() {
     let data = SampleData {
-      message: "Success!".to_string(),
-      value: 200,
+      message: "Custom Success!".to_string(),
+      value: 201,
     };
-    let response = api_response.success(&data);
-    assert!(response.headers().get("Access-Control-Allow-Origin").is_none());
+    let api_response = ApiResponse::new();
+    let response = api_response.success_with_status(&data, &StatusCode::CREATED);
+    assert_eq!(response.status(), StatusCode::CREATED);
+    assert_eq!(
+      response.headers().get("Content-Type").unwrap(),
+      "application/json"
+    );
+    let body = response.body();
+    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
+    assert_eq!(deserialized_body, data);
+  }
+
+  #[test]
+  fn test_created() {
+    let data = SampleData {
+      message: "Created!".to_string(),
+      value: 201,
+    };
+    let api_response = ApiResponse::new();
+    let response = api_response.created(&data);
+    assert_eq!(response.status(), StatusCode::CREATED);
+    assert_eq!(
+      response.headers().get("Content-Type").unwrap(),
+      "application/json"
+    );
+    let body = response.body();
+    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
+    assert_eq!(deserialized_body, data);
+  }
+
+  #[test]
+  fn test_unprocessable_entity() {
+    let data = SampleData {
+      message: "Validation Error!".to_string(),
+      value: 422,
+    };
+    let api_response = ApiResponse::new();
+    let response = api_response.unprocessable_entity(&data);
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+      response.headers().get("Content-Type").unwrap(),
+      "application/json"
+    );
+    let body = response.body();
+    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
+    assert_eq!(deserialized_body, data);
+  }
+
+  #[test]
+  fn test_server_error() {
+    let data = SampleData {
+      message: "Server Error!".to_string(),
+      value: 500,
+    };
+    let api_response = ApiResponse::new();
+    let response = api_response.server_error(&data);
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+      response.headers().get("Content-Type").unwrap(),
+      "application/json"
+    );
+    let body = response.body();
+    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
+    assert_eq!(deserialized_body, data);
+  }
+
+  #[test]
+  fn test_error_with_status() {
+    let data = SampleData {
+      message: "Custom Error!".to_string(),
+      value: 400,
+    };
+    let api_response = ApiResponse::new();
+    let response = api_response.error_with_status(&data, &StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+      response.headers().get("Content-Type").unwrap(),
+      "application/json"
+    );
+    let body = response.body();
+    let deserialized_body: SampleData = serde_json::from_str(body.as_str()).unwrap();
+    assert_eq!(deserialized_body, data);
   }
 }
