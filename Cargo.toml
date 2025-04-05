@@ -1,6 +1,6 @@
 [package]
 name = "ferrum"
-version = "0.4.1"
+version = "0.4.4"
 edition = "2024"
 authors = ["Shan Padayhag <shanpadayhag@gmail.com>"]
 description = "A simple crate for ferrum projects"
