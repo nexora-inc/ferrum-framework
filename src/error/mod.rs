@@ -18,6 +18,28 @@ pub enum Error {
   Unhandled(SerializableError),
 }
 
+impl std::fmt::Display for SerializableError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.message)
+  }
+}
+
+impl std::fmt::Display for Error {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Error::DatabaseConnection(err) => write!(f, "Database connection error: {}", err),
+      Error::DatabaseQuery(err) => write!(f, "Database query error: {}", err),
+      Error::DatabaseRowNotFound(err) => write!(f, "Database row not found: {}", err),
+      Error::DatabaseRowMapping(err) => write!(f, "Database row mapping error: {}", err),
+      Error::JwtGenerate(err) => write!(f, "JWT generation error: {}", err),
+      Error::JwtTokenInvalid(err) => write!(f, "JWT token invalid: {}", err),
+      Error::Unauthorized(err) => write!(f, "Unauthorized: {}", err),
+      Error::ToStr(err) => write!(f, "String conversion error: {}", err),
+      Error::Unhandled(err) => write!(f, "Unhandled error: {}", err),
+    }
+  }
+}
+
 impl From<sqlx::Error> for Error {
   fn from(error: sqlx::Error) -> Self {
     let serializable_error = SerializableError {
