@@ -3,22 +3,22 @@ use lambda_http::http::HeaderMap;
 use crate::{
   error::SerializableError,
   types::{auth::AuthUser, utils::jwt_util::AuthClaims},
-  utils::jwt_util::IJwtUtil,
+  utils::jwt_util::JwtUtilProvider,
   Error,
 };
 
-pub trait IAuth {
+pub trait AuthProvider {
   fn authenticate(&mut self, headers: &HeaderMap) -> Result<(), Error>;
 }
 
 pub struct Auth {
-  jwt_util: Box<dyn IJwtUtil>,
+  jwt_util: Box<dyn JwtUtilProvider>,
   claims: Option<AuthClaims>,
   auth_scheme: &'static str,
 }
 
 impl Auth {
-  pub fn new(jwt_util: Box<dyn IJwtUtil>) -> Self {
+  pub fn new(jwt_util: Box<dyn JwtUtilProvider>) -> Self {
     Self { jwt_util, claims: None, auth_scheme: "Watashiwasta " }
   }
 
@@ -30,7 +30,7 @@ impl Auth {
   }
 }
 
-impl IAuth for Auth {
+impl AuthProvider for Auth {
   fn authenticate(&mut self, headers: &HeaderMap) -> Result<(), Error> {
     let auth_header_value = headers
       .get("Authorization")
@@ -67,13 +67,13 @@ mod tests {
 
   use crate::{
     types::utils::jwt_util::TokenType,
-    utils::jwt_util::MockIJwtUtil,
+    utils::jwt_util::MockJwtUtilProvider,
   };
 
   #[test]
   fn test_authenticate_success() {
     // arrange
-    let mut jwt_util = MockIJwtUtil::new();
+    let mut jwt_util = MockJwtUtilProvider::new();
     let mut headers = HeaderMap::new();
     let auth_scheme = "Watashiwasta ";
     let raw_token = "valid_token";
@@ -110,7 +110,7 @@ mod tests {
   #[test]
   fn test_authenticate_missing_header() {
     // arrange
-    let mock_jwt_util = MockIJwtUtil::new();
+    let mock_jwt_util = MockJwtUtilProvider::new();
     let mut auth = Auth::new(Box::new(mock_jwt_util));
     let headers = HeaderMap::new();
 
@@ -129,7 +129,7 @@ mod tests {
   #[test]
   fn test_authenticate_invalid_scheme() {
     // arrange
-    let jwt_util = MockIJwtUtil::new();
+    let jwt_util = MockJwtUtilProvider::new();
     let mut headers = HeaderMap::new();
     let auth_scheme = "Invalid ";
     let raw_token = "valid_token";
@@ -150,7 +150,7 @@ mod tests {
   #[test]
   fn test_authenticate_jwt_extraction_error() {
     // arrange
-    let mut mock_jwt_util = MockIJwtUtil::new();
+    let mut mock_jwt_util = MockJwtUtilProvider::new();
     let mut headers = HeaderMap::new();
     let access_token = "invalid_token";
     headers.insert("Authorization", format!("Watashiwasta {}", access_token)

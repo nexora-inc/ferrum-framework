@@ -8,11 +8,10 @@ use crate::{types::utils::jwt_util::AuthClaims, Error};
 use mockall::{automock, predicate::*};
 #[async_trait::async_trait]
 #[cfg_attr(any(test, feature = "mocks"), automock)]
-pub trait IJwtUtil: Send + Sync {
+pub trait JwtUtilProvider: Send + Sync {
   fn generate_token(&self, claims: &AuthClaims) -> Result<String, Error>;
   fn extract_claims(&self, token: &str) -> Result<AuthClaims, Error>;
 }
-
 
 #[derive(Clone)]
 pub struct JwtUtil {
@@ -32,7 +31,7 @@ impl JwtUtil {
   }
 }
 
-impl IJwtUtil for JwtUtil {
+impl JwtUtilProvider for JwtUtil {
   fn generate_token(&self, claims: &AuthClaims) -> Result<String, Error> {
     Ok(encode(&Header::default(), claims, &self.encoding_key)?)
   }
